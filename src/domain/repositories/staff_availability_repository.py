@@ -11,12 +11,12 @@ class StaffAvailabilityRepository(ABC):
     """Abstract repository for StaffAvailability persistence operations."""
 
     @abstractmethod
-    def get_by_staff(self, staff_id: UUID) -> list[TimeSlot]:
+    async def get_by_staff(self, staff_id: UUID) -> list[TimeSlot]:
         """Return all availability windows for the given staff member."""
         ...
 
     @abstractmethod
-    def get_by_staff_and_day(self, staff_id: UUID, day_of_week: int) -> list[TimeSlot]:
+    async def get_by_staff_and_day(self, staff_id: UUID, day_of_week: int) -> list[TimeSlot]:
         """Return availability windows for the given staff member on a specific weekday.
 
         Args:

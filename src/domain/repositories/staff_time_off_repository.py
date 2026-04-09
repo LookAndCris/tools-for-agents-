@@ -12,7 +12,7 @@ class StaffTimeOffRepository(ABC):
     """Abstract repository for StaffTimeOff persistence operations."""
 
     @abstractmethod
-    def get_by_staff_and_range(
+    async def get_by_staff_and_range(
         self,
         staff_id: UUID,
         start: datetime,

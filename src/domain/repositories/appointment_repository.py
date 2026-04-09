@@ -13,17 +13,17 @@ class AppointmentRepository(ABC):
     """Abstract repository for Appointment persistence operations."""
 
     @abstractmethod
-    def get_by_id(self, id: UUID) -> Appointment | None:
+    async def get_by_id(self, id: UUID) -> Appointment | None:
         """Return the appointment with the given ID, or None if not found."""
         ...
 
     @abstractmethod
-    def save(self, appointment: Appointment) -> Appointment:
+    async def save(self, appointment: Appointment) -> Appointment:
         """Persist a new or updated appointment and return it."""
         ...
 
     @abstractmethod
-    def find_by_staff_and_date_range(
+    async def find_by_staff_and_date_range(
         self,
         staff_id: UUID,
         start: datetime,
@@ -33,7 +33,7 @@ class AppointmentRepository(ABC):
         ...
 
     @abstractmethod
-    def find_by_client(
+    async def find_by_client(
         self,
         client_id: UUID,
         status: AppointmentStatus | None = None,
