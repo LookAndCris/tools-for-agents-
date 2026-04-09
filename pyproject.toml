@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "tools-for-agents"
+version = "0.1.0"
+description = "AI-agent-powered backend for managing appointments in service businesses"
+authors = ["tools-for-agents"]
+packages = [{include = "domain", from = "src"}, {include = "application", from = "src"}, {include = "infrastructure", from = "src"}, {include = "interfaces", from = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0"
+pytest-mock = "^3.14"
+pytest-cov = "^5.0"
+factory-boy = "^3.3"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
