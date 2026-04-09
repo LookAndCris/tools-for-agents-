@@ -163,3 +163,143 @@ async def test_get_by_staff_and_range_returns_empty_for_unknown_staff(db_session
         end=_utc(2026, 12, 31),
     )
     assert results == []
+
+
+# ---------------------------------------------------------------------------
+# save
+# ---------------------------------------------------------------------------
+
+
+async def test_save_creates_new_time_off(db_session: AsyncSession) -> None:
+    """save() persists a new StaffTimeOff entity and returns it."""
+    from domain.entities.staff_time_off import StaffTimeOff
+    from domain.value_objects.time_slot import TimeSlot
+    from sqlalchemy import select
+
+    role = await _create_role(db_session)
+    user = await _create_user(db_session, role.id)
+    staff = await _create_staff(db_session, user.id)
+
+    start = _utc(2026, 7, 1, 9)
+    end = _utc(2026, 7, 1, 17)
+    entity = StaffTimeOff(
+        id=uuid.uuid4(),
+        staff_id=staff.id,
+        time_slot=TimeSlot(start=start, end=end),
+        reason="Holiday",
+    )
+
+    repo = PgStaffTimeOffRepository(db_session)
+    saved = await repo.save(entity)
+
+    assert saved is not None
+    assert saved.id == entity.id
+    assert saved.staff_id == staff.id
+    assert saved.time_slot.start == start
+    assert saved.time_slot.end == end
+    assert saved.reason == "Holiday"
+
+    # Verify it was actually written to the database
+    stmt = select(StaffTimeOffModel).where(StaffTimeOffModel.id == entity.id)
+    result = await db_session.execute(stmt)
+    row = result.scalar_one_or_none()
+    assert row is not None
+
+
+async def test_save_updates_existing_time_off(db_session: AsyncSession) -> None:
+    """save() with an existing ID updates the record (upsert semantics)."""
+    from domain.entities.staff_time_off import StaffTimeOff
+    from domain.value_objects.time_slot import TimeSlot
+
+    role = await _create_role(db_session)
+    user = await _create_user(db_session, role.id)
+    staff = await _create_staff(db_session, user.id)
+
+    # Create initial record
+    existing = await _create_time_off(
+        db_session, staff.id, _utc(2026, 7, 1, 9), _utc(2026, 7, 1, 17), reason="Original"
+    )
+
+    # Update with new reason via save()
+    entity = StaffTimeOff(
+        id=existing.id,
+        staff_id=staff.id,
+        time_slot=TimeSlot(start=_utc(2026, 7, 1, 9), end=_utc(2026, 7, 1, 17)),
+        reason="Updated reason",
+    )
+
+    repo = PgStaffTimeOffRepository(db_session)
+    saved = await repo.save(entity)
+
+    assert saved.id == existing.id
+    assert saved.reason == "Updated reason"
+
+
+# ---------------------------------------------------------------------------
+# delete
+# ---------------------------------------------------------------------------
+
+
+async def test_delete_removes_time_off(db_session: AsyncSession) -> None:
+    """delete() removes a StaffTimeOff block by ID."""
+    from sqlalchemy import select
+
+    role = await _create_role(db_session)
+    user = await _create_user(db_session, role.id)
+    staff = await _create_staff(db_session, user.id)
+
+    toff = await _create_time_off(
+        db_session, staff.id, _utc(2026, 8, 1, 9), _utc(2026, 8, 1, 17)
+    )
+
+    repo = PgStaffTimeOffRepository(db_session)
+    await repo.delete(toff.id)
+
+    # Verify it was removed
+    stmt = select(StaffTimeOffModel).where(StaffTimeOffModel.id == toff.id)
+    result = await db_session.execute(stmt)
+    row = result.scalar_one_or_none()
+    assert row is None
+
+
+async def test_delete_nonexistent_id_does_not_raise(db_session: AsyncSession) -> None:
+    """delete() with a non-existent ID does not raise an exception."""
+    repo = PgStaffTimeOffRepository(db_session)
+    # Should complete without error
+    await repo.delete(uuid.uuid4())
+
+
+# ---------------------------------------------------------------------------
+# get_by_id
+# ---------------------------------------------------------------------------
+
+
+async def test_get_by_id_returns_entity(db_session: AsyncSession) -> None:
+    """get_by_id() returns the matching StaffTimeOff entity."""
+    from domain.entities.staff_time_off import StaffTimeOff
+
+    role = await _create_role(db_session)
+    user = await _create_user(db_session, role.id)
+    staff = await _create_staff(db_session, user.id)
+
+    start = _utc(2026, 9, 1, 8)
+    end = _utc(2026, 9, 1, 18)
+    toff = await _create_time_off(db_session, staff.id, start, end, reason="Conference")
+
+    repo = PgStaffTimeOffRepository(db_session)
+    result = await repo.get_by_id(toff.id)
+
+    assert result is not None
+    assert isinstance(result, StaffTimeOff)
+    assert result.id == toff.id
+    assert result.staff_id == staff.id
+    assert result.time_slot.start == start
+    assert result.time_slot.end == end
+    assert result.reason == "Conference"
+
+
+async def test_get_by_id_returns_none_for_unknown_id(db_session: AsyncSession) -> None:
+    """get_by_id() returns None when no record matches."""
+    repo = PgStaffTimeOffRepository(db_session)
+    result = await repo.get_by_id(uuid.uuid4())
+    assert result is None
