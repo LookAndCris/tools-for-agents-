@@ -11,7 +11,7 @@ Strategy:
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
@@ -132,12 +132,32 @@ class PgAppointmentRepository(AppointmentRepository):
         # Insert only events that have no corresponding DB row yet
         new_events = appointment.events[existing_count:]
         for event_dict in new_events:
+            details = event_dict.get("details") or {}
+            # Extract typed column values from the details dict (datetimes may be raw)
+            performed_by = details.get("performed_by")
+            old_start = details.get("old_start")
+            old_end = details.get("old_end")
+            new_start = details.get("new_start")
+            new_end = details.get("new_end")
+            reason = details.get("reason")
+
+            # Build a JSON-serializable copy of details for the JSONB column
+            # (convert UUID/datetime values to strings so PostgreSQL JSONB accepts them)
+            jsonb_details = _to_jsonb_details(details) if details else None
+
             event_model = AppointmentEventModel(
                 id=uuid.uuid4(),
                 appointment_id=model.id,
                 event_type=event_dict["type"],
                 occurred_at=_parse_event_timestamp(event_dict.get("timestamp")),
-                details=event_dict.get("details"),
+                details=jsonb_details,
+                # Typed audit columns
+                performed_by=performed_by,
+                old_start=old_start,
+                old_end=old_end,
+                new_start=new_start,
+                new_end=new_end,
+                reason=reason,
             )
             self._session.add(event_model)
 
@@ -224,3 +244,22 @@ def _parse_event_timestamp(ts: str | None) -> datetime:
         return dt
     except ValueError:
         return datetime.now(timezone.utc)
+
+
+def _to_jsonb_details(details: dict[str, Any]) -> dict[str, Any]:
+    """Convert a domain event details dict to a JSON-serializable form.
+
+    Converts datetime → ISO string and UUID → str so PostgreSQL JSONB accepts them.
+    Non-serializable types are omitted (fail-safe).
+    """
+    result: dict[str, Any] = {}
+    for key, value in details.items():
+        if value is None:
+            result[key] = None
+        elif isinstance(value, datetime):
+            result[key] = value.isoformat()
+        elif isinstance(value, UUID):
+            result[key] = str(value)
+        else:
+            result[key] = value
+    return result

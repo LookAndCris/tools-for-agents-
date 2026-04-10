@@ -15,14 +15,16 @@ from application.dto.commands import (
     RescheduleAppointmentCommand,
 )
 from application.dto.queries import GetClientAppointmentsQuery
-from application.dto.responses import AppointmentResponse
+from application.dto.responses import AppointmentEventResponse, AppointmentResponse
 from application.dto.user_context import UserContext
 from application.use_cases.cancel_appointment import CancelAppointmentUseCase
 from application.use_cases.create_appointment import CreateAppointmentUseCase
+from application.use_cases.get_appointment_events import GetAppointmentEventsUseCase
 from application.use_cases.get_client_appointments import GetClientAppointmentsUseCase
 from application.use_cases.reschedule_appointment import RescheduleAppointmentUseCase
 from infrastructure.database.session import get_session
 from interfaces.api.dependencies import (
+    get_appointment_events_uc,
     get_cancel_appointment_uc,
     get_client_appointments_uc,
     get_create_appointment_uc,
@@ -110,3 +112,18 @@ async def reschedule_appointment(
     result = await uc.execute(cmd_with_id, caller)
     await session.commit()
     return result
+
+
+@router.get("/{appointment_id}/events", response_model=list[AppointmentEventResponse])
+async def get_appointment_events(
+    appointment_id: UUID,
+    caller: UserContext = Depends(get_current_user),
+    uc: GetAppointmentEventsUseCase = Depends(get_appointment_events_uc),
+) -> list[AppointmentEventResponse]:
+    """Return the audit event history for an appointment.
+
+    Returns 200 with a (possibly empty) list of events in chronological order.
+    Returns 401 if authentication is missing.
+    Returns 404 if the appointment does not exist.
+    """
+    return await uc.execute(appointment_id)

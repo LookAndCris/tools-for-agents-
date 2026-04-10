@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     api_port: int = 8000
     allowed_origins: list[str] = ["*"]
 
+    # OpenAI settings
+    openai_api_key: str = ""
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -115,4 +116,44 @@ class StaffTimeOffResponse(BaseModel):
             start_time=time_off.time_slot.start,
             end_time=time_off.time_slot.end,
             reason=time_off.reason,
+        )
+
+
+class AppointmentEventResponse(BaseModel):
+    """DTO representing a single audit event on an appointment."""
+
+    id: UUID
+    appointment_id: UUID
+    event_type: str
+    occurred_at: datetime
+    performed_by: UUID | None = None
+    details: dict[str, Any] | None = None
+
+
+class WaitlistEntryResponse(BaseModel):
+    """DTO representing a waitlist entry."""
+
+    id: UUID
+    client_id: UUID
+    service_id: UUID
+    preferred_staff_id: UUID | None
+    preferred_start: datetime | None
+    preferred_end: datetime | None
+    status: str
+    notes: str | None = None
+    created_at: datetime
+
+    @classmethod
+    def from_entity(cls, entry) -> "WaitlistEntryResponse":
+        """Create a WaitlistEntryResponse from a WaitlistEntry domain entity."""
+        return cls(
+            id=entry.id,
+            client_id=entry.client_id,
+            service_id=entry.service_id,
+            preferred_staff_id=entry.preferred_staff_id,
+            preferred_start=entry.preferred_start,
+            preferred_end=entry.preferred_end,
+            status=entry.status.value,
+            notes=entry.notes,
+            created_at=entry.created_at,
         )

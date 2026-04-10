@@ -235,3 +235,87 @@ class TestStaffTimeOffResponse:
             reason="Vacation",
         )
         assert resp.reason == "Vacation"
+
+
+class TestWaitlistCommands:
+    def test_add_waitlist_command_minimal(self):
+        from application.dto.commands import AddWaitlistCommand
+        cmd = AddWaitlistCommand(
+            client_id=uuid.uuid4(),
+            service_id=uuid.uuid4(),
+        )
+        assert cmd.preferred_staff_id is None
+        assert cmd.preferred_start is None
+        assert cmd.preferred_end is None
+
+    def test_add_waitlist_command_full(self):
+        from application.dto.commands import AddWaitlistCommand
+        cid = uuid.uuid4()
+        sid = uuid.uuid4()
+        stid = uuid.uuid4()
+        start = utc(2026, 6, 1, 10)
+        end = utc(2026, 6, 1, 12)
+        cmd = AddWaitlistCommand(
+            client_id=cid,
+            service_id=sid,
+            preferred_staff_id=stid,
+            preferred_start=start,
+            preferred_end=end,
+        )
+        assert cmd.client_id == cid
+        assert cmd.service_id == sid
+        assert cmd.preferred_staff_id == stid
+        assert cmd.preferred_start == start
+        assert cmd.preferred_end == end
+
+    def test_add_waitlist_command_missing_required_raises(self):
+        from application.dto.commands import AddWaitlistCommand
+        with pytest.raises(Exception):
+            AddWaitlistCommand(client_id=uuid.uuid4())  # missing service_id
+
+    def test_notify_waitlist_command_minimal(self):
+        from application.dto.commands import NotifyWaitlistCommand
+        cmd = NotifyWaitlistCommand(service_id=uuid.uuid4())
+        assert cmd.staff_id is None
+
+    def test_notify_waitlist_command_with_staff(self):
+        from application.dto.commands import NotifyWaitlistCommand
+        sid = uuid.uuid4()
+        stid = uuid.uuid4()
+        cmd = NotifyWaitlistCommand(service_id=sid, staff_id=stid)
+        assert cmd.service_id == sid
+        assert cmd.staff_id == stid
+
+
+class TestWaitlistResponses:
+    def test_waitlist_entry_response_construction(self):
+        from application.dto.responses import WaitlistEntryResponse
+        now = utc(2026, 6, 1, 10)
+        resp = WaitlistEntryResponse(
+            id=uuid.uuid4(),
+            client_id=uuid.uuid4(),
+            service_id=uuid.uuid4(),
+            preferred_staff_id=None,
+            preferred_start=None,
+            preferred_end=None,
+            status="pending",
+            created_at=now,
+        )
+        assert resp.status == "pending"
+        assert resp.preferred_staff_id is None
+
+    def test_waitlist_entry_response_with_preferences(self):
+        from application.dto.responses import WaitlistEntryResponse
+        now = utc(2026, 6, 1, 10)
+        stid = uuid.uuid4()
+        resp = WaitlistEntryResponse(
+            id=uuid.uuid4(),
+            client_id=uuid.uuid4(),
+            service_id=uuid.uuid4(),
+            preferred_staff_id=stid,
+            preferred_start=utc(2026, 6, 1, 10),
+            preferred_end=utc(2026, 6, 1, 12),
+            status="pending",
+            created_at=now,
+        )
+        assert resp.preferred_staff_id == stid

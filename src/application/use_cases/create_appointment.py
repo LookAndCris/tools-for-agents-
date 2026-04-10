@@ -115,6 +115,9 @@ class CreateAppointmentUseCase:
             created_by=caller.user_id,
         )
 
+        # --- 7a. Emit 'created' audit event with actor attribution ---
+        appointment.mark_created(performed_by=caller.user_id)
+
         # --- 8. Persist (flush, no commit) ---
         saved = await self._appointment_repo.save(appointment)
 

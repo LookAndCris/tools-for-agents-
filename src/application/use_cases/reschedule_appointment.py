@@ -100,7 +100,7 @@ class RescheduleAppointmentUseCase:
             raise BookingConflictError("; ".join(overlap_result.violations))
 
         # --- 7. Mutate entity ---
-        appointment.reschedule(new_slot)
+        appointment.reschedule(new_slot, performed_by=caller.user_id)
 
         # --- 8. Persist (flush, no commit) ---
         saved = await self._appointment_repo.save(appointment)

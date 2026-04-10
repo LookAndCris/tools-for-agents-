@@ -5,6 +5,8 @@ from domain.repositories.staff_repository import StaffRepository
 from domain.repositories.client_repository import ClientRepository
 from domain.repositories.staff_availability_repository import StaffAvailabilityRepository
 from domain.repositories.staff_time_off_repository import StaffTimeOffRepository
+from domain.repositories.waitlist_entry_repository import WaitlistEntryRepository
+from domain.repositories.waitlist_notification_repository import WaitlistNotificationRepository
 
 __all__ = [
     "AppointmentRepository",
@@ -13,4 +15,6 @@ __all__ = [
     "ClientRepository",
     "StaffAvailabilityRepository",
     "StaffTimeOffRepository",
+    "WaitlistEntryRepository",
+    "WaitlistNotificationRepository",
 ]

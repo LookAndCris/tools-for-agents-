@@ -16,6 +16,7 @@ from interfaces.api.routers.health import router as health_router
 from interfaces.api.routers.services import router as services_router
 from interfaces.api.routers.staff import router as staff_router
 from interfaces.api.routers.staff_time_off import router as staff_time_off_router
+from interfaces.api.routers.waitlist import router as waitlist_router
 
 
 def create_app() -> FastAPI:
@@ -63,5 +64,6 @@ def create_app() -> FastAPI:
     app.include_router(staff_router, prefix="/staff", tags=["staff"])
     app.include_router(appointments_router, prefix="/appointments", tags=["appointments"])
     app.include_router(staff_time_off_router, prefix="/staff-time-off", tags=["staff-time-off"])
+    app.include_router(waitlist_router, prefix="/waitlist", tags=["waitlist"])
 
     return app

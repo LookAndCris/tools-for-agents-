@@ -11,6 +11,8 @@ from infrastructure.database.models.staff_availability import StaffAvailabilityM
 from infrastructure.database.models.staff_time_off import StaffTimeOffModel
 from infrastructure.database.models.appointment import AppointmentModel
 from infrastructure.database.models.appointment_event import AppointmentEventModel
+from infrastructure.database.models.waitlist_entry import WaitlistEntryModel
+from infrastructure.database.models.waitlist_notification import WaitlistNotificationModel
 
 __all__ = [
     "RoleModel",
@@ -23,4 +25,6 @@ __all__ = [
     "StaffTimeOffModel",
     "AppointmentModel",
     "AppointmentEventModel",
+    "WaitlistEntryModel",
+    "WaitlistNotificationModel",
 ]

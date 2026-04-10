@@ -437,3 +437,128 @@ async def test_reschedule_nonexistent_appointment_returns_404(
     assert "error" in data
     assert "message" in data["error"]
     assert "code" in data["error"]
+
+
+# ---------------------------------------------------------------------------
+# GET /appointments/{id}/events
+# ---------------------------------------------------------------------------
+
+
+async def test_get_appointment_events_returns_200(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """GET /appointments/{id}/events returns 200 with a list for an existing appointment."""
+    staff, svc, _ = await _seed_bookable_setup(db_session)
+    start_time = _next_monday_at(8)
+
+    payload = {
+        "client_id": str(FIXED_CLIENT_UUID),
+        "staff_id": str(FIXED_STAFF_UUID),
+        "service_id": str(svc.id),
+        "start_time": start_time.isoformat(),
+    }
+    create_response = await client.post("/appointments/", json=payload)
+    assert create_response.status_code == 201
+    appt_id = create_response.json()["id"]
+
+    events_response = await client.get(f"/appointments/{appt_id}/events")
+    assert events_response.status_code == 200
+    data = events_response.json()
+    assert isinstance(data, list)
+
+
+async def test_get_appointment_events_contains_created_event(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """GET /appointments/{id}/events returns at least a 'created' event."""
+    staff, svc, _ = await _seed_bookable_setup(db_session)
+    start_time = _next_monday_at(17)
+
+    payload = {
+        "client_id": str(FIXED_CLIENT_UUID),
+        "staff_id": str(FIXED_STAFF_UUID),
+        "service_id": str(svc.id),
+        "start_time": start_time.isoformat(),
+    }
+    create_response = await client.post("/appointments/", json=payload)
+    assert create_response.status_code == 201
+    appt_id = create_response.json()["id"]
+
+    events_response = await client.get(f"/appointments/{appt_id}/events")
+    assert events_response.status_code == 200
+    events = events_response.json()
+    assert len(events) >= 1
+    event_types = [e["event_type"] for e in events]
+    assert "created" in event_types
+
+
+async def test_get_appointment_events_response_shape(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """GET /appointments/{id}/events returns events with expected fields."""
+    staff, svc, _ = await _seed_bookable_setup(db_session)
+    start_time = _next_monday_at(18)
+
+    payload = {
+        "client_id": str(FIXED_CLIENT_UUID),
+        "staff_id": str(FIXED_STAFF_UUID),
+        "service_id": str(svc.id),
+        "start_time": start_time.isoformat(),
+    }
+    create_response = await client.post("/appointments/", json=payload)
+    assert create_response.status_code == 201
+    appt_id = create_response.json()["id"]
+
+    events_response = await client.get(f"/appointments/{appt_id}/events")
+    assert events_response.status_code == 200
+    events = events_response.json()
+    assert len(events) >= 1
+
+    event = events[0]
+    assert "id" in event
+    assert "appointment_id" in event
+    assert "event_type" in event
+    assert "occurred_at" in event
+    assert event["appointment_id"] == appt_id
+
+
+async def test_get_appointment_events_nonexistent_returns_404(
+    client: AsyncClient,
+) -> None:
+    """GET /appointments/{random_id}/events returns 404 when appointment doesn't exist."""
+    random_id = uuid.uuid4()
+    response = await client.get(f"/appointments/{random_id}/events")
+    assert response.status_code == 404
+    data = response.json()
+    assert "error" in data
+    assert "message" in data["error"]
+    assert "code" in data["error"]
+
+
+async def test_get_appointment_events_requires_auth(
+    client_no_auth: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """GET /appointments/{id}/events returns 401 when X-User-ID header is missing."""
+    response = await client_no_auth.get(f"/appointments/{uuid.uuid4()}/events")
+    assert response.status_code == 401
+
+
+async def test_get_appointment_events_401_uses_error_envelope(
+    client_no_auth: AsyncClient,
+) -> None:
+    """GET /appointments/{id}/events returns standard error envelope on 401.
+
+    The 401 response body MUST follow the project envelope format:
+    {"error": {"message": "...", "code": "..."}}
+    NOT FastAPI's default {"detail": "..."}.
+    """
+    response = await client_no_auth.get(f"/appointments/{uuid.uuid4()}/events")
+    assert response.status_code == 401
+    data = response.json()
+    assert "error" in data, f"Expected 'error' key in response, got: {data}"
+    assert "message" in data["error"], f"Expected 'message' in error envelope, got: {data}"
+    assert "code" in data["error"], f"Expected 'code' in error envelope, got: {data}"

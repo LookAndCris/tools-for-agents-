@@ -186,3 +186,25 @@ class TestCancelAppointmentUseCase:
             await uc.execute(cmd, staff_caller)
 
         appointment_repo.save.assert_not_called()
+
+    async def test_cancel_threads_caller_user_id_into_event(
+        self, uc, cmd, caller, appointment, appointment_repo
+    ):
+        """cancel() event details contain caller.user_id as performed_by."""
+        appointment_repo.get_by_id.return_value = appointment
+
+        saved_appointment = None
+
+        async def capture(appt):
+            nonlocal saved_appointment
+            saved_appointment = appt
+            return appt
+
+        appointment_repo.save.side_effect = capture
+
+        await uc.execute(cmd, caller)
+
+        assert saved_appointment is not None
+        cancel_events = [e for e in saved_appointment.events if e["type"] == "cancelled"]
+        assert len(cancel_events) == 1
+        assert cancel_events[0]["details"]["performed_by"] == caller.user_id

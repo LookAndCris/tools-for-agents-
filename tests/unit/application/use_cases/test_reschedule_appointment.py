@@ -300,3 +300,39 @@ class TestRescheduleAppointmentUseCase:
             await uc.execute(cmd, caller)
 
         appointment_repo.save.assert_not_called()
+
+    async def test_reschedule_threads_caller_user_id_into_event(
+        self,
+        uc,
+        cmd,
+        caller,
+        appointment,
+        service,
+        availability_window,
+        appointment_repo,
+        service_repo,
+        availability_repo,
+        time_off_repo,
+    ):
+        """reschedule() event details contain caller.user_id as performed_by."""
+        appointment_repo.get_by_id.return_value = appointment
+        service_repo.get_by_id.return_value = service
+        availability_repo.get_by_staff_and_day.return_value = [availability_window]
+        time_off_repo.get_by_staff_and_range.return_value = []
+        appointment_repo.find_by_staff_and_date_range.return_value = []
+
+        saved_appointment = None
+
+        async def capture(appt):
+            nonlocal saved_appointment
+            saved_appointment = appt
+            return appt
+
+        appointment_repo.save.side_effect = capture
+
+        await uc.execute(cmd, caller)
+
+        assert saved_appointment is not None
+        reschedule_events = [e for e in saved_appointment.events if e["type"] == "rescheduled"]
+        assert len(reschedule_events) == 1
+        assert reschedule_events[0]["details"]["performed_by"] == caller.user_id

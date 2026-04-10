@@ -225,7 +225,7 @@ class TestCreateAppointmentUseCase:
         time_off_repo,
         appointment_repo,
     ):
-        """Appointment entity has domain events after creation."""
+        """Appointment entity has a 'created' domain event after creation with caller.user_id."""
         service_repo.get_by_id.return_value = service
         staff_repo.get_by_id.return_value = staff
         availability_repo.get_by_staff_and_day.return_value = [availability_window]
@@ -243,9 +243,12 @@ class TestCreateAppointmentUseCase:
 
         await uc.execute(cmd, caller)
 
-        # The appointment entity should exist and have at least an empty events list
+        # The appointment entity should have a 'created' event with caller.user_id
         assert saved_appointment is not None
         assert isinstance(saved_appointment.events, list)
+        created_events = [e for e in saved_appointment.events if e["type"] == "created"]
+        assert len(created_events) == 1
+        assert created_events[0]["details"]["performed_by"] == caller.user_id
 
     # ------------------------------------------------------------------ #
     # Service not found

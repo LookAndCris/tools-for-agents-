@@ -95,6 +95,54 @@ class TestStaffTimeOffRepositoryShape:
         assert hasattr(StaffTimeOffRepository, "get_by_staff_and_range")
 
 
+class TestWaitlistEntryRepositoryShape:
+    def test_is_abstract(self):
+        from domain.repositories.waitlist_entry_repository import WaitlistEntryRepository
+        assert issubclass(WaitlistEntryRepository, ABC)
+        assert inspect.isabstract(WaitlistEntryRepository)
+
+    def test_has_save(self):
+        from domain.repositories.waitlist_entry_repository import WaitlistEntryRepository
+        assert hasattr(WaitlistEntryRepository, "save")
+
+    def test_has_get_by_id(self):
+        from domain.repositories.waitlist_entry_repository import WaitlistEntryRepository
+        assert hasattr(WaitlistEntryRepository, "get_by_id")
+
+    def test_has_find_pending_by_service(self):
+        from domain.repositories.waitlist_entry_repository import WaitlistEntryRepository
+        assert hasattr(WaitlistEntryRepository, "find_pending_by_service")
+
+    def test_has_find_by_client(self):
+        from domain.repositories.waitlist_entry_repository import WaitlistEntryRepository
+        assert hasattr(WaitlistEntryRepository, "find_by_client")
+
+    def test_cannot_be_instantiated(self):
+        from domain.repositories.waitlist_entry_repository import WaitlistEntryRepository
+        with pytest.raises(TypeError):
+            WaitlistEntryRepository()  # type: ignore
+
+
+class TestWaitlistNotificationRepositoryShape:
+    def test_is_abstract(self):
+        from domain.repositories.waitlist_notification_repository import WaitlistNotificationRepository
+        assert issubclass(WaitlistNotificationRepository, ABC)
+        assert inspect.isabstract(WaitlistNotificationRepository)
+
+    def test_has_save(self):
+        from domain.repositories.waitlist_notification_repository import WaitlistNotificationRepository
+        assert hasattr(WaitlistNotificationRepository, "save")
+
+    def test_has_find_by_waitlist_entry(self):
+        from domain.repositories.waitlist_notification_repository import WaitlistNotificationRepository
+        assert hasattr(WaitlistNotificationRepository, "find_by_waitlist_entry")
+
+    def test_cannot_be_instantiated(self):
+        from domain.repositories.waitlist_notification_repository import WaitlistNotificationRepository
+        with pytest.raises(TypeError):
+            WaitlistNotificationRepository()  # type: ignore
+
+
 class TestRepositoryInfraIsolation:
     def test_appointment_repo_no_infra_imports(self):
         """AppointmentRepository must not import any infrastructure modules."""

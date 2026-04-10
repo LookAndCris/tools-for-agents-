@@ -49,6 +49,100 @@ async def test_all_expected_tables_exist(async_engine) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Waitlist migration tests (Task 2.1)
+# ---------------------------------------------------------------------------
+
+WAITLIST_TABLES = {"waitlist", "waitlist_notifications"}
+
+
+@pytest.mark.asyncio
+async def test_waitlist_tables_exist(async_engine) -> None:
+    """Verify that the waitlist migration created both waitlist tables."""
+    async with async_engine.connect() as conn:
+        tables = await conn.run_sync(
+            lambda sync_conn: inspect(sync_conn).get_table_names()
+        )
+    table_set = set(tables)
+    missing = WAITLIST_TABLES - table_set
+    assert not missing, f"Missing waitlist tables after migration: {missing}"
+
+
+@pytest.mark.asyncio
+async def test_waitlist_table_has_expected_columns(async_engine) -> None:
+    """Verify the waitlist table has required columns."""
+    async with async_engine.connect() as conn:
+        columns = await conn.run_sync(
+            lambda sync_conn: {
+                col["name"] for col in inspect(sync_conn).get_columns("waitlist")
+            }
+        )
+    expected = {"id", "client_id", "service_id", "status", "created_at"}
+    assert expected.issubset(columns), f"Missing columns in waitlist: {expected - columns}"
+
+
+@pytest.mark.asyncio
+async def test_waitlist_notifications_table_has_expected_columns(async_engine) -> None:
+    """Verify the waitlist_notifications table has required columns."""
+    async with async_engine.connect() as conn:
+        columns = await conn.run_sync(
+            lambda sync_conn: {
+                col["name"] for col in inspect(sync_conn).get_columns("waitlist_notifications")
+            }
+        )
+    expected = {"id", "waitlist_id", "notified_at"}
+    assert expected.issubset(columns), (
+        f"Missing columns in waitlist_notifications: {expected - columns}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_waitlist_fk_to_client_profiles(async_engine) -> None:
+    """Verify waitlist has a FK to client_profiles."""
+    async with async_engine.connect() as conn:
+        fks = await conn.run_sync(
+            lambda sync_conn: inspect(sync_conn).get_foreign_keys("waitlist")
+        )
+    referred_tables = {fk["referred_table"] for fk in fks}
+    assert "client_profiles" in referred_tables
+
+
+@pytest.mark.asyncio
+async def test_waitlist_fk_to_services(async_engine) -> None:
+    """Verify waitlist has a FK to services."""
+    async with async_engine.connect() as conn:
+        fks = await conn.run_sync(
+            lambda sync_conn: inspect(sync_conn).get_foreign_keys("waitlist")
+        )
+    referred_tables = {fk["referred_table"] for fk in fks}
+    assert "services" in referred_tables
+
+
+@pytest.mark.asyncio
+async def test_waitlist_notifications_fk_to_waitlist(async_engine) -> None:
+    """Verify waitlist_notifications has a FK to waitlist."""
+    async with async_engine.connect() as conn:
+        fks = await conn.run_sync(
+            lambda sync_conn: inspect(sync_conn).get_foreign_keys("waitlist_notifications")
+        )
+    referred_tables = {fk["referred_table"] for fk in fks}
+    assert "waitlist" in referred_tables
+
+
+@pytest.mark.asyncio
+async def test_waitlist_service_id_index_exists(async_engine) -> None:
+    """Verify the waitlist(service_id) index exists."""
+    async with async_engine.connect() as conn:
+        indexes = await conn.run_sync(
+            lambda sync_conn: inspect(sync_conn).get_indexes("waitlist")
+        )
+    # Check that at least one index covers service_id
+    service_id_indexed = any(
+        "service_id" in idx["column_names"] for idx in indexes
+    )
+    assert service_id_indexed, "No index found on waitlist.service_id"
+
+
+# ---------------------------------------------------------------------------
 # 5.1 — savepoint rollback isolation
 # ---------------------------------------------------------------------------
 

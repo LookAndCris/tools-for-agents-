@@ -35,6 +35,32 @@ class AppointmentEventModel(Base):
     # Optional free-form JSONB payload (e.g. cancellation reason, new slot)
     details: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
+    # ---------------------------------------------------------------------------
+    # Typed audit columns (nullable — backward compat with existing rows)
+    # ---------------------------------------------------------------------------
+
+    #: Actor who triggered this event (user UUID from X-User-ID header)
+    performed_by: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), nullable=True
+    )
+
+    #: Time slot details for APPOINTMENT_RESCHEDULED events
+    old_start: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    old_end: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    new_start: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    new_end: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    #: Cancellation reason for APPOINTMENT_CANCELLED events
+    reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
     # Relationships
     appointment: Mapped["AppointmentModel"] = relationship(  # type: ignore[name-defined]  # noqa: F821
         "AppointmentModel", back_populates="appointment_events", lazy="select"

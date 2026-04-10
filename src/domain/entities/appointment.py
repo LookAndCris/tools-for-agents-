@@ -84,6 +84,10 @@ class Appointment:
         self._transition_to(AppointmentStatus.COMPLETED)
         self._append_event("completed")
 
+    def mark_created(self, performed_by: UUID | None = None) -> None:
+        """Append a 'created' event with optional actor attribution."""
+        self._append_event("created", details={"performed_by": performed_by})
+
     def cancel(
         self,
         cancelled_by: UUID | None = None,
@@ -94,26 +98,42 @@ class Appointment:
         self.cancelled_by = cancelled_by
         self.cancellation_reason = reason
         self.cancelled_at = datetime.now(timezone.utc)
-        self._append_event("cancelled", details={"reason": reason})
+        self._append_event(
+            "cancelled",
+            details={"reason": reason, "performed_by": cancelled_by},
+        )
 
     def mark_no_show(self) -> None:
         """Transition IN_PROGRESS → NO_SHOW."""
         self._transition_to(AppointmentStatus.NO_SHOW)
         self._append_event("no_show")
 
-    def reschedule(self, new_slot: TimeSlot) -> None:
+    def reschedule(self, new_slot: TimeSlot, performed_by: UUID | None = None) -> None:
         """
         Update the time slot and reset status to SCHEDULED.
 
         Only allowed if the appointment is currently SCHEDULED or CONFIRMED.
+        Captures old_start/old_end BEFORE overwriting self.time_slot.
         """
         if self.status not in (AppointmentStatus.SCHEDULED, AppointmentStatus.CONFIRMED):
             raise InvalidStatusTransitionError(
                 f"Cannot reschedule an appointment with status '{self.status.value}'."
             )
+        # Capture old slot BEFORE overwriting
+        old_start = self.time_slot.start
+        old_end = self.time_slot.end
         self.time_slot = new_slot
         self.status = AppointmentStatus.SCHEDULED
-        self._append_event("rescheduled", details={"new_slot": str(new_slot)})
+        self._append_event(
+            "rescheduled",
+            details={
+                "old_start": old_start,
+                "old_end": old_end,
+                "new_start": new_slot.start,
+                "new_end": new_slot.end,
+                "performed_by": performed_by,
+            },
+        )
 
     # ------------------------------------------------------------------
     # Internal helpers

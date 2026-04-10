@@ -4,6 +4,8 @@ from domain.entities.user import User
 from domain.entities.service import Service
 from domain.entities.staff import Staff
 from domain.entities.client import Client
+from domain.entities.waitlist_entry import WaitlistEntry
+from domain.entities.waitlist_notification import WaitlistNotification
 
 __all__ = [
     "Appointment",
@@ -11,4 +13,6 @@ __all__ = [
     "Service",
     "Staff",
     "Client",
+    "WaitlistEntry",
+    "WaitlistNotification",
 ]

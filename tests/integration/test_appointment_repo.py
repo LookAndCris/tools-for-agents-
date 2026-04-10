@@ -367,3 +367,137 @@ async def test_appointment_not_visible_across_tests(db_session: AsyncSession) ->
 
     retrieved = await repo.get_by_id(appt.id)
     assert retrieved is not None  # visible within this test
+
+
+# ---------------------------------------------------------------------------
+# Audit event columns — typed columns persist correctly
+# ---------------------------------------------------------------------------
+
+
+async def test_created_event_persists_performed_by_column(db_session: AsyncSession) -> None:
+    """AppointmentEventModel row for 'created' event stores performed_by as typed UUID column."""
+    from infrastructure.database.models.appointment_event import AppointmentEventModel
+    from sqlalchemy import select
+
+    role = await _create_role(db_session)
+    client = await _create_client(db_session, role.id)
+    staff = await _create_staff(db_session, role.id)
+    service = await _create_service(db_session)
+
+    actor_id = uuid.uuid4()
+    appt = _make_appointment(client.id, staff.id, service.id)
+    appt.mark_created(performed_by=actor_id)
+
+    repo = PgAppointmentRepository(db_session)
+    await repo.save(appt)
+
+    # Fetch the raw event row
+    stmt = select(AppointmentEventModel).where(
+        AppointmentEventModel.appointment_id == appt.id,
+        AppointmentEventModel.event_type == "created",
+    )
+    result = await db_session.execute(stmt)
+    event_row = result.scalar_one_or_none()
+    assert event_row is not None
+    assert event_row.performed_by == actor_id
+
+
+async def test_cancelled_event_persists_performed_by_and_reason(db_session: AsyncSession) -> None:
+    """AppointmentEventModel row for 'cancelled' event stores performed_by and reason columns."""
+    from infrastructure.database.models.appointment_event import AppointmentEventModel
+    from sqlalchemy import select
+
+    role = await _create_role(db_session)
+    client = await _create_client(db_session, role.id)
+    staff = await _create_staff(db_session, role.id)
+    service = await _create_service(db_session)
+
+    actor_id = uuid.uuid4()
+    appt = _make_appointment(client.id, staff.id, service.id)
+    appt.cancel(cancelled_by=actor_id, reason="Changed my plans")
+
+    repo = PgAppointmentRepository(db_session)
+    await repo.save(appt)
+
+    stmt = select(AppointmentEventModel).where(
+        AppointmentEventModel.appointment_id == appt.id,
+        AppointmentEventModel.event_type == "cancelled",
+    )
+    result = await db_session.execute(stmt)
+    event_row = result.scalar_one_or_none()
+    assert event_row is not None
+    assert event_row.performed_by == actor_id
+    assert event_row.reason == "Changed my plans"
+
+
+async def test_rescheduled_event_persists_all_slot_columns(db_session: AsyncSession) -> None:
+    """AppointmentEventModel row for 'rescheduled' event stores performed_by, old/new slot columns."""
+    from infrastructure.database.models.appointment_event import AppointmentEventModel
+    from sqlalchemy import select
+
+    role = await _create_role(db_session)
+    client = await _create_client(db_session, role.id)
+    staff = await _create_staff(db_session, role.id)
+    service = await _create_service(db_session)
+
+    actor_id = uuid.uuid4()
+    original_start = _utc(2026, 6, 10, 10)
+    original_end = _utc(2026, 6, 10, 11)
+    appt = _make_appointment(
+        client.id, staff.id, service.id,
+        start=original_start,
+        end=original_end,
+    )
+
+    new_start = _utc(2026, 6, 10, 14)
+    new_end = _utc(2026, 6, 10, 15)
+    new_slot = TimeSlot(start=new_start, end=new_end)
+    appt.reschedule(new_slot, performed_by=actor_id)
+
+    repo = PgAppointmentRepository(db_session)
+    await repo.save(appt)
+
+    stmt = select(AppointmentEventModel).where(
+        AppointmentEventModel.appointment_id == appt.id,
+        AppointmentEventModel.event_type == "rescheduled",
+    )
+    result = await db_session.execute(stmt)
+    event_row = result.scalar_one_or_none()
+    assert event_row is not None
+    assert event_row.performed_by == actor_id
+    assert event_row.old_start == original_start
+    assert event_row.old_end == original_end
+    assert event_row.new_start == new_start
+    assert event_row.new_end == new_end
+
+
+async def test_legacy_event_tolerates_null_audit_columns(db_session: AsyncSession) -> None:
+    """Events without audit details produce NULL typed columns — backward compat."""
+    from infrastructure.database.models.appointment_event import AppointmentEventModel
+    from sqlalchemy import select
+
+    role = await _create_role(db_session)
+    client = await _create_client(db_session, role.id)
+    staff = await _create_staff(db_session, role.id)
+    service = await _create_service(db_session)
+
+    appt = _make_appointment(client.id, staff.id, service.id)
+    appt.confirm()  # 'confirmed' event has no audit details
+
+    repo = PgAppointmentRepository(db_session)
+    await repo.save(appt)
+
+    stmt = select(AppointmentEventModel).where(
+        AppointmentEventModel.appointment_id == appt.id,
+        AppointmentEventModel.event_type == "confirmed",
+    )
+    result = await db_session.execute(stmt)
+    event_row = result.scalar_one_or_none()
+    assert event_row is not None
+    # All new typed columns should be NULL
+    assert event_row.performed_by is None
+    assert event_row.reason is None
+    assert event_row.old_start is None
+    assert event_row.old_end is None
+    assert event_row.new_start is None
+    assert event_row.new_end is None
