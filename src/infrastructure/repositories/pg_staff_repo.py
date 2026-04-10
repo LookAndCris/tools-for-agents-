@@ -57,6 +57,19 @@ class PgStaffRepository(StaffRepository):
         result = await self._session.execute(stmt)
         return [self._to_entity(row) for row in result.scalars().all()]
 
+    async def get_by_user_id(self, user_id: UUID) -> Staff | None:
+        """Return the Staff member associated with the given user ID, or None."""
+        stmt = (
+            select(StaffProfileModel)
+            .options(selectinload(StaffProfileModel.staff_services))
+            .where(StaffProfileModel.user_id == user_id)
+        )
+        result = await self._session.execute(stmt)
+        model = result.scalar_one_or_none()
+        if model is None:
+            return None
+        return self._to_entity(model)
+
     # ------------------------------------------------------------------
     # Mapping helpers
     # ------------------------------------------------------------------

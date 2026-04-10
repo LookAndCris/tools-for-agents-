@@ -19,3 +19,8 @@ class StaffRepository(ABC):
     async def find_by_service(self, service_id: UUID) -> list[Staff]:
         """Return all staff members who offer the given service."""
         ...
+
+    @abstractmethod
+    async def get_by_user_id(self, user_id: UUID) -> Staff | None:
+        """Return the staff member associated with the given user ID, or None."""
+        ...

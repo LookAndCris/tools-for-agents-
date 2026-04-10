@@ -207,3 +207,51 @@ async def test_staff_not_visible_across_tests(db_session: AsyncSession) -> None:
     repo = PgStaffRepository(db_session)
     entity = await repo.get_by_id(profile.id)
     assert entity is not None  # visible within this test
+
+
+# ---------------------------------------------------------------------------
+# get_by_user_id
+# ---------------------------------------------------------------------------
+
+
+async def test_get_by_user_id_returns_staff_entity(db_session: AsyncSession) -> None:
+    """get_by_user_id returns the correct Staff entity for a given user_id."""
+    role = await _create_role(db_session)
+    user = await _create_user(db_session, role.id)
+    profile = await _create_staff_profile(
+        db_session, user.id, specialty="Styling", bio="Expert stylist"
+    )
+
+    repo = PgStaffRepository(db_session)
+    entity = await repo.get_by_user_id(user.id)
+
+    assert entity is not None
+    assert entity.id == profile.id
+    assert entity.user_id == user.id
+    assert entity.specialty == "Styling"
+    assert entity.bio == "Expert stylist"
+    assert entity.is_available is True
+
+
+async def test_get_by_user_id_returns_none_for_missing(db_session: AsyncSession) -> None:
+    """get_by_user_id returns None when no staff profile exists for the user_id."""
+    repo = PgStaffRepository(db_session)
+    result = await repo.get_by_user_id(uuid.uuid4())
+    assert result is None
+
+
+async def test_get_by_user_id_includes_service_ids(db_session: AsyncSession) -> None:
+    """Staff entity returned by get_by_user_id includes service_ids."""
+    role = await _create_role(db_session)
+    user = await _create_user(db_session, role.id)
+    profile = await _create_staff_profile(db_session, user.id)
+    svc1 = await _create_service(db_session)
+    svc2 = await _create_service(db_session)
+    await _link_staff_service(db_session, profile.id, svc1.id)
+    await _link_staff_service(db_session, profile.id, svc2.id)
+
+    repo = PgStaffRepository(db_session)
+    entity = await repo.get_by_user_id(user.id)
+
+    assert entity is not None
+    assert entity.service_ids == frozenset([svc1.id, svc2.id])
