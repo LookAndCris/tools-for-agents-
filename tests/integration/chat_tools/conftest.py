@@ -16,6 +16,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, time, timezone
 from decimal import Decimal
+from types import SimpleNamespace
 
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -193,6 +194,77 @@ async def seed_staff_with_service(
 @pytest_asyncio.fixture
 async def agent_ctx() -> AgentContext:
     """Return a fixed AgentContext with admin role."""
+    return AgentContext(
+        user_id=FIXED_USER_ID,
+        role="admin",
+        staff_id=FIXED_STAFF_UUID,
+        client_id=None,
+    )
+
+
+@pytest_asyncio.fixture
+async def seeded_db(db_session: AsyncSession) -> SimpleNamespace:
+    """Seed a consistent set of test data for chat tools tests.
+
+    Returns a namespace with 3 services and 1 staff member.
+    Uses unique names to avoid conflicts with existing seeded data.
+    """
+    # Use unique suffix to avoid constraint violations with existing data
+    unique_suffix = uuid.uuid4().hex[:6]
+
+    # Seed role and user for staff
+    role = await seed_role(db_session, f"staff_{unique_suffix}")
+    user = await seed_user(db_session, role.id)
+    staff = await seed_staff_profile(db_session, user.id)
+
+    # Seed services with unique names (no conflicts)
+    from decimal import Decimal
+
+    svc_corte = await seed_service(
+        db_session,
+        name=f"Service_Corte_{unique_suffix}",
+        duration_minutes=45,
+    )
+    svc_corte.price = Decimal("250.00")
+
+    svc_barba = await seed_service(
+        db_session,
+        name=f"Service_Barba_{unique_suffix}",
+        duration_minutes=30,
+    )
+    svc_barba.price = Decimal("150.00")
+
+    svc_afeitado = await seed_service(
+        db_session,
+        name=f"Service_Afeitado_{unique_suffix}",
+        duration_minutes=30,
+    )
+    svc_afeitado.price = Decimal("120.00")
+
+    # Link staff to service_corte only
+    await seed_staff_service_link(db_session, staff.id, svc_corte.id)
+
+    # Seed full-week availability for staff
+    for day in range(1, 8):
+        await seed_staff_availability(
+            db_session,
+            staff.id,
+            day_of_week=day,
+            start_time=time(8, 0),
+            end_time=time(18, 0),
+        )
+
+    return SimpleNamespace(
+        service_corte=svc_corte,
+        service_barba=svc_barba,
+        service_afeitado=svc_afeitado,
+        staff_profile=staff,
+    )
+
+
+@pytest_asyncio.fixture
+async def admin_ctx() -> AgentContext:
+    """Alias for agent_ctx - returns admin context for tests."""
     return AgentContext(
         user_id=FIXED_USER_ID,
         role="admin",
